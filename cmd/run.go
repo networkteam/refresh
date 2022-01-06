@@ -3,11 +3,14 @@ package cmd
 import (
 	"context"
 	"errors"
-	"log"
 	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/apex/log"
+	"github.com/spf13/cobra"
 
 	"github.com/markbates/refresh/refresh"
-	"github.com/spf13/cobra"
 )
 
 // ErrConfigNotExist is returned when a configuration file cannot be found.
@@ -27,7 +30,8 @@ var runCmd = &cobra.Command{
 }
 
 func Run(cfgFile string) error {
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 	return RunWithContext(cfgFile, ctx)
 }
 
@@ -39,11 +43,11 @@ func RunWithContext(cfgFile string, ctx context.Context) error {
 			return err
 		}
 
-		log.Println("No configuration loaded, proceeding with defaults")
+		log.Warn("No configuration loaded, proceeding with defaults")
 	}
 
 	if len(c.Path) > 0 {
-		log.Printf("Configuration loaded from %s\n", c.Path)
+		log.WithField("config", c.Path).Debugf("Configuration loaded")
 	}
 
 	if debug {

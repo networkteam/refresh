@@ -6,10 +6,11 @@ package filenotify
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/apex/log"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -152,7 +153,7 @@ func (w *filePoller) watch(f *os.File, lastFi os.FileInfo, chClose chan struct{}
 		select {
 		case <-time.After(watchWaitTime):
 		case <-chClose:
-			log.Printf("watch for %s closed", f.Name())
+			log.Debugf("watch for %s closed", f.Name())
 			return
 		}
 

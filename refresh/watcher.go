@@ -2,76 +2,76 @@ package refresh
 
 import (
 	"context"
-	"errors"
-	"os"
+	"fmt"
 	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/markbates/refresh/filenotify"
+	"github.com/rjeczalik/notify"
 )
 
 type Watcher struct {
-	filenotify.FileWatcher
-	*Manager
-	context context.Context
+	ctx                context.Context
+	Events             chan WatchEvent
+	appRoot            string
+	includedExtensions []string
+	ignoredFolders     []string
 }
 
-func NewWatcher(r *Manager) *Watcher {
-	var watcher filenotify.FileWatcher
+type WatchEvent struct {
+	Path string
+	Type string
+}
 
-	if r.ForcePolling {
-		watcher = filenotify.NewPollingWatcher()
-	} else {
-		watcher, _ = filenotify.NewEventWatcher()
-	}
+func NewWatcher(ctx context.Context, appRoot string, includedExtensions []string, ignoredFolders []string) *Watcher {
 
 	return &Watcher{
-		FileWatcher: watcher,
-		Manager:     r,
-		context:     r.context,
+		ctx:                ctx,
+		Events:             make(chan WatchEvent, 1),
+		appRoot:            appRoot,
+		includedExtensions: includedExtensions,
+		ignoredFolders:     ignoredFolders,
 	}
 }
 
-func (w *Watcher) Start() {
+func (w *Watcher) Start() error {
+	c := make(chan notify.EventInfo, 1)
+	err := notify.Watch(filepath.Join(w.appRoot, "..."), c, notify.All)
+	if err != nil {
+		return fmt.Errorf("watching app root recursively: %w", err)
+	}
 	go func() {
+		defer notify.Stop(c)
 		for {
-			err := filepath.Walk(w.AppRoot, func(path string, info os.FileInfo, err error) error {
-				if info == nil {
-					w.cancelFunc()
-					return errors.New("nil directory!")
+			select {
+			case evt := <-c:
+				path := evt.Path()
+				if w.isIgnoredFolder(path) {
+					continue
 				}
-				if info.IsDir() {
-					if strings.HasPrefix(filepath.Base(path), "_") {
-						return filepath.SkipDir
-					}
-					if len(path) > 1 && strings.HasPrefix(filepath.Base(path), ".") || w.isIgnoredFolder(path) {
-						return filepath.SkipDir
-					}
+				if !w.isWatchedFile(path) {
+					continue
 				}
-				if w.isWatchedFile(path) {
-					w.Add(path)
+				w.Events <- WatchEvent{
+					Path: evt.Path(),
+					Type: evt.Event().String(),
 				}
-				return nil
-			})
-
-			if err != nil {
-				w.context.Done()
-				break
+			case <-w.ctx.Done():
+				return
 			}
-			// sweep for new files every 1 second
-			time.Sleep(1 * time.Second)
 		}
 	}()
+	return nil
 }
 
 func (w Watcher) isIgnoredFolder(path string) bool {
+	// TODO Path is probably wrongly used since it is absolute and ignored folders are relative, ignored folders need to be processed absolute to app root!
+
 	paths := strings.Split(path, "/")
 	if len(paths) <= 0 {
 		return false
 	}
 
-	for _, e := range w.IgnoredFolders {
+	for _, e := range w.ignoredFolders {
 		if strings.TrimSpace(e) == paths[0] {
 			return true
 		}
@@ -82,7 +82,7 @@ func (w Watcher) isIgnoredFolder(path string) bool {
 func (w Watcher) isWatchedFile(path string) bool {
 	ext := filepath.Ext(path)
 
-	for _, e := range w.IncludedExtensions {
+	for _, e := range w.includedExtensions {
 		if strings.TrimSpace(e) == ext {
 			return true
 		}

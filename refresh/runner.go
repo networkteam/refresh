@@ -7,32 +7,47 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/apex/log"
 )
 
 func (m *Manager) runner() {
 	var cmd *exec.Cmd
-	for {
-		<-m.Restart
+	stopProcess := func() {
 		if cmd != nil {
 			// kill the previous command
 			pid := cmd.Process.Pid
-			m.Logger.Success("Stopping: PID %d", pid)
-			cmd.Process.Kill()
+			log.
+				WithField("pid", pid).
+				Info("Stopping process")
+			// TODO This does not work on windows
+			cmd.Process.Signal(os.Interrupt)
+			cmd.Process.Wait()
 		}
-		if m.Debug {
-			bp := m.FullBuildPath()
-			args := []string{"exec", bp}
-			args = append(args, m.CommandFlags...)
-			cmd = exec.Command("dlv", args...)
-		} else {
-			cmd = exec.Command(m.FullBuildPath(), m.CommandFlags...)
-		}
-		go func() {
-			err := m.runAndListen(cmd)
-			if err != nil {
-				m.Logger.Error(err)
+	}
+	for {
+		select {
+		case <-m.Restart:
+			stopProcess()
+			if m.Debug {
+				bp := m.FullBuildPath()
+				args := []string{"exec", bp}
+				args = append(args, m.CommandFlags...)
+				cmd = exec.Command("dlv", args...)
+			} else {
+				cmd = exec.Command(m.FullBuildPath(), m.CommandFlags...)
 			}
-		}()
+			go func() {
+				log.Info("Starting process")
+				err := m.runAndListen(cmd)
+				if err != nil {
+					log.Error(err.Error())
+				}
+			}()
+		case <-m.context.Done():
+			stopProcess()
+			return
+		}
 	}
 }
 
@@ -66,7 +81,9 @@ func (m *Manager) runAndListen(cmd *exec.Cmd) error {
 		return fmt.Errorf("%s\n%s", err, stderr.String())
 	}
 
-	m.Logger.Success("Running: %s (PID: %d)", strings.Join(cmd.Args, " "), cmd.Process.Pid)
+	log.
+		WithField("pid", cmd.Process.Pid).
+		Debugf("Running: %s", strings.Join(cmd.Args, " "))
 	err = cmd.Wait()
 	if err != nil {
 		return fmt.Errorf("%s\n%s", err, stderr.String())

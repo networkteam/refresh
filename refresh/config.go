@@ -24,7 +24,6 @@ type Configuration struct {
 	CommandEnv         []string      `yaml:"command_env"`
 	CommandFlags       []string      `yaml:"command_flags"`
 	EnableColors       bool          `yaml:"enable_colors"`
-	ForcePolling       bool          `yaml:"force_polling,omitempty"`
 	IgnoredFolders     []string      `yaml:"ignored_folders"`
 	IncludedExtensions []string      `yaml:"included_extensions"`
 	LogName            string        `yaml:"log_name"`
