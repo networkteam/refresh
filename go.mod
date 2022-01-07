@@ -1,4 +1,4 @@
-module github.com/markbates/refresh
+module github.com/networkteam/refresh
 
 go 1.17
 

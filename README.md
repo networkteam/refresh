@@ -2,14 +2,16 @@
 
 ## Rebuild and re-run your Go applications when files change.
 
-This project was inspired by [https://github.com/pilu/fresh](https://github.com/pilu/fresh). The lack of updates and response from the maintainer, non-idiomatic codebase, numerous bugs, and lack of detailed reporting made the project a dead end for me to use. Enter `refresh`.
+> This project is based on [https://github.com/markbates/refresh](https://github.com/markbates/refresh).
+We used the tool for quite some time (thx for making and maintaining it so long!) but hit some harder issues with process management (clean shutdown) and
+issues with `fsnotify/fsnotify` on recent macOS versions. So this is once again a new re-iteration ;)
 
 This simple command line application will watch your files, trigger a build of your Go binary and restart the application for you.
 
 ## Installation
 
 ```
-$ go get github.com/markbates/refresh
+$ go install github.com/networkteam/refresh@latest
 ```
 
 ## Getting Started
@@ -38,18 +40,6 @@ $ refresh run
 
 That's it! Now, as you change your code the binary will be re-built and re-started for you.
 
-## HTTP Handler
-
-Refresh is nice enough to ship with an `http.Handler` that you can wrap around your requests. Why would you want to do that?
-Well, if there is an error doing a build, the built in `http.Handler` will print the error in your browser in giant text so you'll know that there was a problem, and where to fix it (hopefully).
-
-```go
-...
-m := http.NewServeMux()
-err = http.ListenAndServe(":3000", web.ErrorChecker(m))
-...
-```
-
 ## Configuration Settings
 
 ```yml
@@ -66,8 +56,8 @@ included_extensions:
   - .go
 # The directory you want to build your binary in.
 build_path: /tmp
-# `fsnotify` can trigger many events at once when you change a file. To minimize
-# unnecessary builds, a delay is used to ignore extra events.
+# `notify` can trigger many events at once when you change files. To minimize
+# unnecessary builds, a delay is used to ignore extra events until the delay passes after the first event.
 build_delay: 200ms
 # If you have a specific sub-directory of your project you want to build.
 build_target_path : "./cmd/cli"

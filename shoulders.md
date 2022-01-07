@@ -1,9 +1,16 @@
-# github.com/markbates/refresh Stands on the Shoulders of Giants
+# github.com/networkteam/refresh Stands on the Shoulders of Giants
 
-github.com/markbates/refresh does not try to reinvent the wheel! Instead, it uses the already great wheels developed by the Go community and puts them all together in the best way possible. Without these giants, this project would not be possible. Please make sure to check them out and thank them for all of their hard work.
+`github.com/networkteam/refresh` does not try to reinvent the wheel!
+Instead, it uses the already great wheels developed by the Go community and puts them all together in the best way possible.
+Without these giants, this project would not be possible. Please make sure to check them out and thank them for all of their hard work.
 
 Thank you to the following **GIANTS**:
 
+* [github.com/markbates/refresh](https://github.com/markbates/refresh)
+
+* [github.com/rjeczalik/notify](https://godoc.org/github.com/rjeczalik/notify)
+
+* [github.com/apex/log](https://godoc.org/github.com/apex/log)
 
 * [github.com/fatih/color](https://godoc.org/github.com/fatih/color)
 

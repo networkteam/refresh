@@ -7,7 +7,7 @@ import (
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
 
-	"github.com/markbates/refresh/cmd/loghandler"
+	"github.com/networkteam/refresh/cmd/loghandler"
 )
 
 var cfgFile string

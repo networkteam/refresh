@@ -10,7 +10,7 @@ import (
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
 
-	"github.com/markbates/refresh/refresh"
+	"github.com/networkteam/refresh/refresh"
 )
 
 // ErrConfigNotExist is returned when a configuration file cannot be found.
