@@ -3,9 +3,11 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"time"
+
+	"github.com/spf13/cobra"
 
 	"github.com/markbates/refresh/refresh"
-	"github.com/spf13/cobra"
 )
 
 func init() {
@@ -25,7 +27,7 @@ var initCmd = &cobra.Command{
 			IncludedExtensions: []string{".go"},
 			BuildTargetPath:    "",
 			BuildPath:          os.TempDir(),
-			BuildDelay:         200,
+			BuildDelay:         100 * time.Millisecond,
 			BinaryName:         "refresh-build",
 			CommandFlags:       []string{},
 			CommandEnv:         []string{},

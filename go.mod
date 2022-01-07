@@ -6,7 +6,6 @@ require (
 	github.com/apex/log v1.9.0
 	github.com/fatih/color v1.13.0
 	github.com/mattn/go-colorable v0.1.9
-	github.com/mitchellh/go-homedir v1.1.0
 	github.com/rjeczalik/notify v0.9.2
 	github.com/spf13/cobra v1.2.1
 	gopkg.in/yaml.v2 v2.4.0

@@ -34,8 +34,13 @@ func NewWatcher(ctx context.Context, appRoot string, includedExtensions []string
 }
 
 func (w *Watcher) Start() error {
+	appPath, err := filepath.Abs(w.appRoot)
+	if err != nil {
+		return fmt.Errorf("getting absolute app root path: %w", err)
+	}
+
 	c := make(chan notify.EventInfo, 1)
-	err := notify.Watch(filepath.Join(w.appRoot, "..."), c, notify.All)
+	err = notify.Watch(filepath.Join(w.appRoot, "..."), c, notify.All)
 	if err != nil {
 		return fmt.Errorf("watching app root recursively: %w", err)
 	}
@@ -45,7 +50,7 @@ func (w *Watcher) Start() error {
 			select {
 			case evt := <-c:
 				path := evt.Path()
-				if w.isIgnoredFolder(path) {
+				if w.isIgnoredFolder(appPath, path) {
 					continue
 				}
 				if !w.isWatchedFile(path) {
@@ -63,16 +68,9 @@ func (w *Watcher) Start() error {
 	return nil
 }
 
-func (w Watcher) isIgnoredFolder(path string) bool {
-	// TODO Path is probably wrongly used since it is absolute and ignored folders are relative, ignored folders need to be processed absolute to app root!
-
-	paths := strings.Split(path, "/")
-	if len(paths) <= 0 {
-		return false
-	}
-
+func (w Watcher) isIgnoredFolder(appPath, path string) bool {
 	for _, e := range w.ignoredFolders {
-		if strings.TrimSpace(e) == paths[0] {
+		if strings.HasPrefix(path, filepath.Join(appPath, e, "")) {
 			return true
 		}
 	}
