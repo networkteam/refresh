@@ -85,7 +85,7 @@ func (m *Manager) runAndListen(cmd *exec.Cmd) error {
 		WithField("pid", cmd.Process.Pid).
 		Debugf("Running: %s", strings.Join(cmd.Args, " "))
 	err = cmd.Wait()
-	if err != nil {
+	if _, ok := err.(*exec.ExitError); ok {
 		return fmt.Errorf("%s\n%s", err, stderr.String())
 	}
 	return nil
