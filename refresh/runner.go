@@ -15,7 +15,7 @@ import (
 func (r *Manager) runner() {
 	var cmd *exec.Cmd
 	stopProcess := func() {
-		if cmd != nil {
+		if cmd != nil && cmd.Process != nil {
 			// kill the previous command
 			pid := cmd.Process.Pid
 			log.
