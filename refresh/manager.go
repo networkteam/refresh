@@ -79,8 +79,13 @@ func (r *Manager) requestBuild(event WatchEvent) {
 	select {
 	case r.buildRequests <- event:
 		// Sent event to build requests channel
+		log.
+			WithField("path", event.Path).
+			WithField("event", event.Type).
+			Debugf("Build requested")
 	default:
 		// Channel is full -> ignore, since there's another pending build request
+		log.Debug("Build request ignored")
 	}
 }
 
@@ -118,6 +123,7 @@ func (r *Manager) build(event WatchEvent) error {
 func (r *Manager) drainBuildRequests(event WatchEvent) {
 	// Do not wait for initial build
 	if event.Type == "init" {
+		log.Debug("drainBuildRequests: Skip init")
 		return
 	}
 
@@ -125,7 +131,12 @@ func (r *Manager) drainBuildRequests(event WatchEvent) {
 	for {
 		select {
 		case event = <-r.buildRequests:
+			log.
+				WithField("path", event.Path).
+				WithField("event", event.Type).
+				Debugf("drainBuildRequests: Skip event until timer expires")
 		case <-t.C:
+			log.Debug("drainBuildRequests: Timer expired")
 			return
 		}
 	}

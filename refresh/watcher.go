@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/apex/log"
 	"github.com/rjeczalik/notify"
 )
 
@@ -39,7 +40,7 @@ func (w *Watcher) Start() error {
 		return fmt.Errorf("getting absolute app root path: %w", err)
 	}
 
-	c := make(chan notify.EventInfo, 1)
+	c := make(chan notify.EventInfo, 100)
 	err = notify.Watch(filepath.Join(w.appRoot, "..."), c, notify.All)
 	if err != nil {
 		return fmt.Errorf("watching app root recursively: %w", err)
@@ -51,9 +52,11 @@ func (w *Watcher) Start() error {
 			case evt := <-c:
 				path := evt.Path()
 				if w.isIgnoredFolder(appPath, path) {
+					log.Debugf("Ignoring change in %s (ignored folder)", path)
 					continue
 				}
 				if !w.isWatchedFile(path) {
+					log.Debugf("Ignoring change in %s (not watched file)", path)
 					continue
 				}
 				w.Events <- WatchEvent{
