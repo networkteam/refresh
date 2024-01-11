@@ -2,11 +2,17 @@ package refresh
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/apex/log"
+	"github.com/r3labs/sse/v2"
+	"github.com/rs/cors"
+	"gopkg.in/cenkalti/backoff.v1"
 )
 
 type Manager struct {
@@ -16,6 +22,8 @@ type Manager struct {
 	cancelFunc    context.CancelFunc
 	context       context.Context
 	buildRequests chan WatchEvent
+
+	liveReloadSSE *sse.Server
 }
 
 func NewWithContext(c *Configuration, ctx context.Context) *Manager {
@@ -38,6 +46,8 @@ func (r *Manager) Start() error {
 	if err != nil {
 		return err
 	}
+
+	r.startLiveReloadServer()
 
 	// Select loop to process build requests sequentially
 	go func() {
@@ -71,6 +81,7 @@ func (r *Manager) Start() error {
 			}
 		}()
 	}
+
 	r.runner()
 	return nil
 }
@@ -140,4 +151,89 @@ func (r *Manager) drainBuildRequests(event WatchEvent) {
 			return
 		}
 	}
+}
+
+func (r *Manager) startLiveReloadServer() {
+	if !r.LiveReload {
+		return
+	}
+
+	r.liveReloadSSE = sse.New()
+	r.liveReloadSSE.AutoReplay = false
+	r.liveReloadSSE.CreateStream("refresh")
+
+	// Start HTTP server with permissive CORS on a random port in the background and terminate on r.context done
+
+	srv := httptest.NewServer(cors.New(cors.Options{
+		AllowOriginFunc: func(origin string) bool { return true },
+		AllowedMethods: []string{
+			http.MethodHead,
+			http.MethodGet,
+			http.MethodPost,
+			http.MethodPut,
+			http.MethodPatch,
+			http.MethodDelete,
+		},
+		AllowedHeaders:   []string{"*"},
+		AllowCredentials: true,
+	}).Handler(r.liveReloadSSE))
+
+	log.Debugf("liveReload: Started server on %s", srv.URL)
+
+	// Pass the SSE server URL and event type to the process via env vars
+	r.CommandEnv = append(r.CommandEnv, "REFRESH_LIVE_RELOAD_SSE_URL="+srv.URL+"/?stream=refresh", "REFRESH_LIVE_RELOAD_SSE_EVENT="+refreshRestartEventName)
+
+	go func() {
+		<-r.context.Done()
+		r.liveReloadSSE.Close()
+		srv.Close()
+		log.Debug("liveReload: Stopped server")
+	}()
+}
+
+const refreshRestartEventName = "refresh-restart"
+
+func (r *Manager) notifyLiveReloadRestart() {
+	if r.liveReloadSSE == nil {
+		return
+	}
+
+	if r.ReadynessURL != "" {
+		err := r.waitForReadyness()
+		if err != nil {
+			log.WithError(err).Warn("liveReload: Readyness check failed")
+			return
+		}
+	}
+
+	log.Debug("liveReload: Notify restart")
+
+	r.liveReloadSSE.Publish("refresh", &sse.Event{
+		Event: []byte(refreshRestartEventName),
+		Data:  []byte("The server has been restarted"),
+	})
+}
+
+func (r *Manager) waitForReadyness() error {
+	log.Debug("liveReload: Waiting for readyness")
+
+	return backoff.Retry(func() error {
+		// Check if r.context is done
+		select {
+		case <-r.context.Done():
+			return backoff.Permanent(r.context.Err())
+		default:
+		}
+
+		resp, err := http.Get(r.ReadynessURL)
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		}
+
+		log.Debug("liveReload: Readyness check successful")
+		return nil
+	}, backoff.NewExponentialBackOff())
 }

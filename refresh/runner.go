@@ -44,6 +44,7 @@ func (r *Manager) runner() {
 					log.Error(err.Error())
 				}
 			}()
+			r.notifyLiveReloadRestart()
 		case <-r.context.Done():
 			stopProcess()
 			return
