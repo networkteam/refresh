@@ -162,9 +162,9 @@ func (r *Manager) startLiveReloadServer() {
 	r.liveReloadSSE.AutoReplay = false
 	r.liveReloadSSE.CreateStream("refresh")
 
-	// Start HTTP server with permissive CORS on a random port in the background and terminate on r.context done
+	// Start HTTP server with permissive CORS on a random port in the background
 
-	srv := httptest.NewServer(cors.New(cors.Options{
+	corsMiddleware := cors.New(cors.Options{
 		AllowOriginFunc: func(origin string) bool { return true },
 		AllowedMethods: []string{
 			http.MethodHead,
@@ -176,13 +176,15 @@ func (r *Manager) startLiveReloadServer() {
 		},
 		AllowedHeaders:   []string{"*"},
 		AllowCredentials: true,
-	}).Handler(r.liveReloadSSE))
+	})
+	srv := httptest.NewServer(corsMiddleware.Handler(r.liveReloadSSE))
 
 	log.Debugf("liveReload: Started server on %s", srv.URL)
 
 	// Pass the SSE server URL and event type to the process via env vars
 	r.CommandEnv = append(r.CommandEnv, "REFRESH_LIVE_RELOAD_SSE_URL="+srv.URL+"/?stream=refresh", "REFRESH_LIVE_RELOAD_SSE_EVENT="+refreshRestartEventName)
 
+	// Close the SSE server when the context is done
 	go func() {
 		<-r.context.Done()
 		r.liveReloadSSE.Close()
