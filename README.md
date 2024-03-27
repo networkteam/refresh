@@ -45,7 +45,7 @@ That's it! Now, as you change your code the binary will be re-built and re-start
 ```yml
 # The root of your application relative to your configuration file.
 app_root: .
-# List of folders you don't want to watch. The more folders you ignore, the 
+# List of folders you don't want to watch. The more folders you ignore, the
 # faster things will be.
 ignored_folders:
   - vendor
@@ -69,4 +69,46 @@ command_flags: ["--env", "development"]
 command_env: ["PORT=1234"]
 # If you want colors to be used when printing out log messages.
 enable_colors: true
+# Enable a live reload server that pushes an SSE event to the client when the app was rebuilt.
+live_reload: true
+# A URL to check the readyness of the application before sending a reload event.
+readyness_url: http://localhost:3000/healthz
 ```
+
+## Live Reload
+
+Background: We want to have a proxy-less live-reload experience when working with HTML on the server (e.g. htmx).
+
+If `live_reload` is enabled, refresh will start an HTTP server on a random port that sends SSE events when
+the application was rebuilt. The client can listen to these events and trigger a reload of the page.
+When `readyness_url` is set, refresh will check the URL to be healthy before sending the reload event.
+
+If you want to enable live reload, you can add the following script to your HTML (e.g. using Go templates):
+
+```go
+package main
+
+func main() {
+	liveReloadScriptURL := os.Getenv("REFRESH_LIVE_RELOAD_SCRIPT_URL")
+
+    http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+        data := struct {
+            LiveReloadScriptURL string
+        }{
+            LiveReloadScriptURL: liveReloadScriptURL,
+        }
+        tmpl.Execute(w, data)
+    })
+    // ...
+}
+```
+
+```html
+<body>
+{{ if ne .LiveReloadScriptURL "" }}
+    <script src="{{ .LiveReloadScriptURL }}"></script>
+{{ end }}
+</body>
+```
+
+Or you can handle the SSE events yourself using `REFRESH_LIVE_RELOAD_SSE_EVENT` (for the event name) and `REFRESH_LIVE_RELOAD_SSE_URL` (for the SSE endpoint) environment variables.

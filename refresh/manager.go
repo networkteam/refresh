@@ -1,6 +1,7 @@
 package refresh
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -13,6 +14,8 @@ import (
 	"github.com/r3labs/sse/v2"
 	"github.com/rs/cors"
 	"gopkg.in/cenkalti/backoff.v1"
+
+	"github.com/networkteam/refresh/static"
 )
 
 type Manager struct {
@@ -177,12 +180,34 @@ func (r *Manager) startLiveReloadServer() {
 		AllowedHeaders:   []string{"*"},
 		AllowCredentials: true,
 	})
-	srv := httptest.NewServer(corsMiddleware.Handler(r.liveReloadSSE))
+
+	var srv *httptest.Server
+	mux := http.NewServeMux()
+	mux.Handle("/events", r.liveReloadSSE)
+	mux.HandleFunc("/static/reload.js", func(w http.ResponseWriter, r *http.Request) {
+		file, err := static.Files.ReadFile("reload.js")
+		if err != nil {
+			log.WithError(err).Error("liveReload: Failed to read reload.js")
+			http.Error(w, "Failed to load reload.js", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/javascript")
+		file = bytes.Replace(file, []byte("${REFRESH_LIVE_RELOAD_SSE_URL}"), []byte(srv.URL+"/events?stream=refresh"), 1)
+		_, _ = w.Write(file)
+	})
+
+	srv = httptest.NewServer(corsMiddleware.Handler(mux))
 
 	log.Debugf("liveReload: Started server on %s", srv.URL)
 
 	// Pass the SSE server URL and event type to the process via env vars
-	r.CommandEnv = append(r.CommandEnv, "REFRESH_LIVE_RELOAD_SSE_URL="+srv.URL+"/?stream=refresh", "REFRESH_LIVE_RELOAD_SSE_EVENT="+refreshRestartEventName)
+	r.CommandEnv = append(
+		r.CommandEnv,
+		"REFRESH_LIVE_RELOAD_SSE_URL="+srv.URL+"/events?stream=refresh",
+		"REFRESH_LIVE_RELOAD_SSE_EVENT="+refreshRestartEventName,
+		"REFRESH_LIVE_RELOAD_SCRIPT_URL="+srv.URL+"/static/reload.js",
+	)
 
 	// Close the SSE server when the context is done
 	go func() {
@@ -218,6 +243,8 @@ func (r *Manager) notifyLiveReloadRestart() {
 
 func (r *Manager) waitForReadyness() error {
 	log.Debug("liveReload: Waiting for readyness")
+
+	// TODO Check what happens if app never becomes ready?
 
 	return backoff.Retry(func() error {
 		// Check if r.context is done
