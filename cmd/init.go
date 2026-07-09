@@ -25,6 +25,7 @@ var initCmd = &cobra.Command{
 			AppRoot:            ".",
 			IgnoredFolders:     []string{"vendor", "log", "logs", "tmp", "node_modules", "bin", "templates"},
 			IncludedExtensions: []string{".go"},
+			IncludedPatterns:   []string{},
 			BuildTargetPath:    "",
 			BuildPath:          os.TempDir(),
 			BuildDelay:         100 * time.Millisecond,

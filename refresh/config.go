@@ -26,6 +26,7 @@ type Configuration struct {
 	EnableColors       bool          `yaml:"enable_colors"`
 	IgnoredFolders     []string      `yaml:"ignored_folders"`
 	IncludedExtensions []string      `yaml:"included_extensions"`
+	IncludedPatterns   []string      `yaml:"included_patterns"`
 	LiveReload         bool          `yaml:"live_reload"`
 	ReadynessURL       string        `yaml:"readyness_url"`
 	LogName            string        `yaml:"log_name"`

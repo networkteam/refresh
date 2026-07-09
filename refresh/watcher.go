@@ -15,6 +15,7 @@ type Watcher struct {
 	Events             chan WatchEvent
 	appRoot            string
 	includedExtensions []string
+	includedPatterns   []string
 	ignoredFolders     []string
 }
 
@@ -23,13 +24,14 @@ type WatchEvent struct {
 	Type string
 }
 
-func NewWatcher(ctx context.Context, appRoot string, includedExtensions []string, ignoredFolders []string) *Watcher {
+func NewWatcher(ctx context.Context, appRoot string, includedExtensions []string, includedPatterns []string, ignoredFolders []string) *Watcher {
 
 	return &Watcher{
 		ctx:                ctx,
 		Events:             make(chan WatchEvent, 1),
 		appRoot:            appRoot,
 		includedExtensions: includedExtensions,
+		includedPatterns:   includedPatterns,
 		ignoredFolders:     ignoredFolders,
 	}
 }
@@ -38,6 +40,18 @@ func (w *Watcher) Start() error {
 	appPath, err := filepath.Abs(w.appRoot)
 	if err != nil {
 		return fmt.Errorf("getting absolute app root path: %w", err)
+	}
+
+	// Validate included patterns once up front, so a malformed glob surfaces
+	// immediately instead of silently never matching in the event loop.
+	for _, p := range w.includedPatterns {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		if _, err := filepath.Match(p, ""); err != nil {
+			log.Warnf("Invalid included_patterns entry %q: %v (it will never match)", p, err)
+		}
 	}
 
 	c := make(chan notify.EventInfo, 100)
@@ -81,10 +95,23 @@ func (w Watcher) isIgnoredFolder(appPath, path string) bool {
 }
 
 func (w Watcher) isWatchedFile(path string) bool {
+	base := filepath.Base(path)
 	ext := filepath.Ext(path)
 
+	// Exact match on the last extension (unchanged, backwards compatible).
 	for _, e := range w.includedExtensions {
 		if strings.TrimSpace(e) == ext {
+			return true
+		}
+	}
+
+	// Glob match on the file name (e.g. ".env*" to catch a whole family of files).
+	for _, p := range w.includedPatterns {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		if matched, err := filepath.Match(p, base); err == nil && matched {
 			return true
 		}
 	}

@@ -51,9 +51,18 @@ ignored_folders:
   - vendor
   - log
   - tmp
-# List of file extensions you want to watch for changes.
+# List of file extensions you want to watch for changes. These are matched
+# exactly against the last extension of a file (e.g. `.go` matches `main.go`
+# and `service.pb.go`).
 included_extensions:
   - .go
+# List of glob patterns matched against the file name (using Go's
+# `filepath.Match`). Use these for families of files that don't share a single
+# extension, e.g. `.env*` matches `.env`, `.env.development` and `.env.local`.
+# Patterns beginning with `*` must be quoted so YAML does not treat them as an
+# alias, e.g. `"*_templ.go"`.
+included_patterns:
+  - ".env*"
 # The directory you want to build your binary in.
 build_path: /tmp
 # `notify` can trigger many events at once when you change files. To minimize

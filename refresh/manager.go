@@ -44,7 +44,7 @@ func NewWithContext(c *Configuration, ctx context.Context) *Manager {
 }
 
 func (r *Manager) Start() error {
-	w := NewWatcher(r.context, r.AppRoot, r.IncludedExtensions, r.IgnoredFolders)
+	w := NewWatcher(r.context, r.AppRoot, r.IncludedExtensions, r.IncludedPatterns, r.IgnoredFolders)
 	err := w.Start()
 	if err != nil {
 		return err
